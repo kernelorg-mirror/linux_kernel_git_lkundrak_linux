@@ -109,6 +109,12 @@
 	panel: panel {
 		compatible = "innolux,n133hse-ea1";
 		backlight = <&backlight>;
+
+		port {
+			panel_in_edp0: endpoint {
+				remote-endpoint = <&bridge_out_edp0>;
+			};
+		};
 	};
 
 	reg_2p5v: regulator-2p5v {
@@ -146,6 +152,24 @@
 		startup-delay-us = <200000>;
 		gpio = <&gpio5 28 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
+	};
+
+	reg_display_1p8v: regulator-display-1p8v {
+		compatible = "regulator-fixed";
+		regulator-name = "display-1p8v";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		startup-delay-us = <600>;
+		vin-supply = <&reg_display>;
+	};
+
+	reg_display_1p8v_pll: regulator-display-1p8v-pll {
+		compatible = "regulator-fixed";
+		regulator-name = "display-1p8v";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		vin-supply = <&reg_display>;
 	};
 
 	reg_lvds_lcd: regulator-lvds-lcd {
@@ -155,6 +179,7 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio4 15 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	reg_pcie: regulator-pcie {
@@ -210,6 +235,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_audmux_novena>;
 	status = "okay";
+};
+
+&clks {
+	assigned-clocks = <&clks IMX6QDL_CLK_LDB_DI0_SEL>,
+			  <&clks IMX6QDL_CLK_LDB_DI1_SEL>,
+			  <&clks IMX6QDL_CLK_IPU1_DI0_PRE_SEL>,
+			  <&clks IMX6QDL_CLK_IPU2_DI0_PRE_SEL>;
+	assigned-clock-parents = <&clks IMX6QDL_CLK_PLL5_VIDEO_DIV>,
+				 <&clks IMX6QDL_CLK_PLL5_VIDEO_DIV>,
+				 <&clks IMX6QDL_CLK_PLL2_PFD2_396M>,
+				 <&clks IMX6QDL_CLK_PLL2_PFD2_396M>;
 };
 
 &ecspi3 {
@@ -423,6 +459,37 @@
 					 <&clks IMX6QDL_CLK_CKO1_PODF>;
 		assigned-clock-rates = <0 0 722534400 22579200>;
 	};
+
+	it6251@5c {
+		compatible = "ite,it6251";
+		reg = <0x5c>, <0x5e>;
+		reg-names = "bridge", "lvds";
+		ovdd-supply = <&reg_display>;
+		avcc-supply = <&reg_display>;
+		ivdd-supply = <&reg_display_1p8v>;
+		avcc18-supply = <&reg_display_1p8v>;
+		anvdd-supply = <&reg_display_1p8v>;
+		pvcc0-supply = <&reg_display_1p8v_pll>;
+		pvcc1-supply = <&reg_display_1p8v_pll>;
+		pvcc2-supply = <&reg_display_1p8v_pll>;
+		apvdd-supply = <&reg_display_1p8v_pll>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_lvdsbridge_novena>;
+
+		ports {
+			port@0 {
+				bridge_in_lvds0: endpoint {
+					remote-endpoint = <&lvds0_out>;
+				};
+			};
+
+			port@1 {
+				bridge_out_edp0: endpoint {
+					remote-endpoint = <&panel_in_edp0>;
+				};
+			};
+		};
+	};
 };
 
 &kpp {
@@ -443,6 +510,14 @@
 		fsl,data-width = <24>;
 		fsl,panel = <&panel>;
 		status = "okay";
+
+		port@4 {
+			reg = <4>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&bridge_in_lvds0>;
+			};
+		};
 	};
 };
 
@@ -530,10 +605,15 @@
 		>;
 	};
 
+	pinctrl_lvdsbridge_novena: lvdsbridgegrp-novena {
+		fsl,pins = <
+			MX6QDL_PAD_CSI0_DAT10__GPIO5_IO28	0x1b0b1
+		>;
+	};
+
 	pinctrl_backlight_novena: backlightgrp-novena {
 		fsl,pins = <
 			MX6QDL_PAD_DISP0_DAT8__PWM1_OUT		0x1b0b0
-			MX6QDL_PAD_CSI0_DAT10__GPIO5_IO28	0x1b0b1
 			MX6QDL_PAD_KEY_ROW4__GPIO4_IO15		0x1b0b1
 		>;
 	};
