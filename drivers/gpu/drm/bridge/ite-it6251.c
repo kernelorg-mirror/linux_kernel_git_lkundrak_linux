@@ -322,8 +322,9 @@ static int it6251_power_up(struct it6251_bridge *it6251)
 	}
 
 	dev_err(&client->dev, "unable to read product id\n");
-	it6251_power_down(it6251);
-	return -EINVAL;
+	return 0;
+//	it6251_power_down(it6251);
+//	return -EINVAL;
 }
 
 /* I2C driver functions */
