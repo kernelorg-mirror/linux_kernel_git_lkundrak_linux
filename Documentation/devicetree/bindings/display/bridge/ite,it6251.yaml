@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/bridge/ite,it6251.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ITE IT6251 LVDS-to-DP bridge bindings
+
+maintainers:
+  - Marek Vasut <marex@denx.de>
+  - Richard Marko <srk@48.io>
+
+description: |
+  This binding describtes the ITE IT6251 LVDS-to-DP encoder compliant
+  with DisplayPort 1.1a.
+
+properties:
+  compatible:
+    const: ite,it6251
+
+  reg:
+    items:
+      - description: I2C address of the bridge
+      - description: I2C address of the LVDS part
+
+  reg-names:
+    items:
+      - const: bridge
+      - const: lvds
+
+  ports:
+    type: object
+
+    properties:
+      "#address-cells":
+        const: 1
+
+      "#size-cells":
+        const: 0
+
+      port@0:
+        type: object
+        description: |
+          Video port for LVDS input.
+
+      port@1:
+        type: object
+        description: |
+          Video port for eDP output (typically panel).
+
+    required:
+      - port@0
+      - port@1
+
+    additionalProperties: false
+
+  ivdd-supply:
+    description: 1.8V Type Digital logic power
+
+  ovdd-supply:
+    description: 3.3V I/O Pin power
+
+  avcc18-supply:
+    description: 1.8V DisplayPort analog frontend power
+
+  pvcc0-supply:
+    description: 1.8V DisplayPort core PLL power
+
+  pvcc1-supply:
+    description: 1.8V DisplayPort core PLL power
+
+  pvcc2-supply:
+    description: 1.8V Filter PLL power
+
+  avcc-supply:
+    description: 3.3V LVDS frontend power
+
+  anvdd-supply:
+    description: 1.8V LVDS frontend analog power
+
+  apvdd-supply:
+    description: 1.8V LVDS frontend PLL power
+
+  no-hpd: true
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - ivdd-supply
+  - ovdd-supply
+  - avcc18-supply
+  - pvcc0-supply
+  - pvcc1-supply
+  - pvcc2-supply
+  - avcc-supply
+  - anvdd-supply
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        it6251@5c {
+            compatible = "ite,it6251";
+            reg = <0x5c>, <0x5e>;
+            reg-names = "bridge", "lvds";
+            ovdd-supply = <&reg_3v3>;
+            avcc-supply = <&reg_3v3>;
+            ivdd-supply = <&reg_1v8>;
+            avcc18-supply = <&reg_1v8>;
+            anvdd-supply = <&reg_1v8>;
+            pvcc0-supply = <&reg_1v8_pll>;
+            pvcc1-supply = <&reg_1v8_pll>;
+            pvcc2-supply = <&reg_1v8_pll>;
+            apvdd-supply = <&reg_1v8_pll>;
+
+            ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                port@0 {
+                    reg = <0>;
+                    bridge_in_lvds0: endpoint {
+                        remote-endpoint = <&lvds0_out>;
+                    };
+                };
+
+                port@1 {
+                    reg = <1>;
+                    bridge_out_edp0: endpoint {
+                        remote-endpoint = <&panel_in_edp0>;
+                    };
+                };
+            };
+        };
+    };
+
+...
