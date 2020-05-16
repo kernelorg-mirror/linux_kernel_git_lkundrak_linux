@@ -1673,12 +1673,14 @@ EXPORT_SYMBOL_GPL(nand_readid_op);
  */
 int nand_status_op(struct nand_chip *chip, u8 *status)
 {
+	u8 addr = 0;
 	if (nand_has_exec_op(chip)) {
 		const struct nand_sdr_timings *sdr =
 			nand_get_sdr_timings(&chip->data_interface);
 		struct nand_op_instr instrs[] = {
 			NAND_OP_CMD(NAND_CMD_STATUS,
 				    PSEC_TO_NSEC(sdr->tADL_min)),
+			NAND_OP_ADDR(1, &addr, 0),
 			NAND_OP_8BIT_DATA_IN(1, status, 0),
 		};
 		struct nand_operation op = NAND_OPERATION(chip->cur_cs, instrs);
