@@ -820,7 +820,14 @@ static int cafe_nand_exec_subop(struct nand_chip *chip,
 
 		case NAND_OP_DATA_IN_INSTR:
 			data_instr = i;
-			ctrl1 |= CAFE_NAND_CTRL1_HAS_DATA_IN;
+			if (ctrl1 & CAFE_NAND_CTRL1_HAS_ADDR) {
+				ctrl1 |= CAFE_NAND_CTRL1_HAS_DATA_IN;
+			} else {
+				ctrl1 |= CAFE_FIELD_PREP(NAND_CTRL1, NUM_NONMEM_READ_LOW,
+							 instr->ctx.data.len & 1) |
+					 CAFE_FIELD_PREP(NAND_CTRL1, NUM_NONMEM_READ_HIGH,
+							 instr->ctx.data.len >> 1);
+			}
 			break;
 
 		case NAND_OP_DATA_OUT_INSTR:
@@ -888,10 +895,18 @@ static int cafe_nand_exec_subop(struct nand_chip *chip,
 		return ret;
 
 	if (ctrl1 & CAFE_NAND_CTRL1_HAS_DATA_IN) {
-		cafe_data_in(cafe, usedma,
-			     subop->instrs[data_instr].ctx.data.buf.in +
-			     nand_subop_get_data_start_off(subop, data_instr),
-			     nand_subop_get_data_len(subop, data_instr));
+		if (ctrl1 & CAFE_NAND_CTRL1_HAS_ADDR) {
+			cafe_data_in(cafe, usedma,
+				     subop->instrs[data_instr].ctx.data.buf.in +
+				     nand_subop_get_data_start_off(subop, data_instr),
+				     nand_subop_get_data_len(subop, data_instr));
+		} else {
+			u32 rd = cafe_readl(cafe, NAND_NONMEM_READ_DATA);
+			unsigned int len = subop->instrs[data_instr].ctx.data.len;
+
+			memcpy(subop->instrs[data_instr].ctx.data.buf.in, &rd,
+			       min_t(unsigned int, len, 4));
+		}
 	}
 
 	return 0;
@@ -899,17 +914,20 @@ static int cafe_nand_exec_subop(struct nand_chip *chip,
 
 static const struct nand_op_parser cafe_nand_op_parser = NAND_OP_PARSER(
 	NAND_OP_PARSER_PATTERN(cafe_nand_exec_subop,
-			       NAND_OP_PARSER_PAT_CMD_ELEM(true),
-			       NAND_OP_PARSER_PAT_ADDR_ELEM(true, 5),
+			       NAND_OP_PARSER_PAT_CMD_ELEM(false),
+			       NAND_OP_PARSER_PAT_ADDR_ELEM(false, 5),
 			       NAND_OP_PARSER_PAT_CMD_ELEM(true),
 			       NAND_OP_PARSER_PAT_WAITRDY_ELEM(true),
 			       NAND_OP_PARSER_PAT_DATA_IN_ELEM(true, 2112)),
 	NAND_OP_PARSER_PATTERN(cafe_nand_exec_subop,
-			       NAND_OP_PARSER_PAT_CMD_ELEM(true),
-			       NAND_OP_PARSER_PAT_ADDR_ELEM(true, 5),
+			       NAND_OP_PARSER_PAT_CMD_ELEM(false),
+			       NAND_OP_PARSER_PAT_ADDR_ELEM(false, 5),
 			       NAND_OP_PARSER_PAT_DATA_OUT_ELEM(true, 2112),
 			       NAND_OP_PARSER_PAT_CMD_ELEM(true),
-			       NAND_OP_PARSER_PAT_WAITRDY_ELEM(true))
+			       NAND_OP_PARSER_PAT_WAITRDY_ELEM(true)),
+	NAND_OP_PARSER_PATTERN(cafe_nand_exec_subop,
+			       NAND_OP_PARSER_PAT_CMD_ELEM(false),
+			       NAND_OP_PARSER_PAT_DATA_IN_ELEM(true, 4))
 );
 
 static int cafe_nand_exec_op(struct nand_chip *chip,
