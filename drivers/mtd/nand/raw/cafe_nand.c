@@ -677,7 +677,8 @@ static const struct nand_op_parser cafe_nand_op_parser = NAND_OP_PARSER(
 			       NAND_OP_PARSER_PAT_WAITRDY_ELEM(true)),
 	NAND_OP_PARSER_PATTERN(cafe_nand_exec_subop,
 			       NAND_OP_PARSER_PAT_CMD_ELEM(false),
-			       NAND_OP_PARSER_PAT_DATA_IN_ELEM(true, 4))
+			       NAND_OP_PARSER_PAT_DATA_IN_ELEM(true, 4),
+			       NAND_OP_PARSER_PAT_WAITRDY_ELEM(true))
 );
 
 static int cafe_nand_exec_op(struct nand_chip *chip,
