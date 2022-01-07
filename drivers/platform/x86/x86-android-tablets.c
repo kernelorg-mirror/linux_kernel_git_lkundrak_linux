@@ -151,6 +151,7 @@ struct x86_dev_info {
 	int i2c_client_count;
 	int pdev_count;
 	int serdev_count;
+	void (*fixup)(void);
 };
 
 /* Generic / shared bq24190 settings */
@@ -614,6 +615,12 @@ static const struct x86_dev_info xiaomi_mipad2_info __initconst = {
 	.i2c_client_count = ARRAY_SIZE(xiaomi_mipad2_i2c_clients),
 };
 
+static void __init x86_czc_p10t_fixup(void);
+
+static const struct x86_dev_info czc_p10t __initconst = {
+	.fixup = x86_czc_p10t_fixup,
+};
+
 static const struct dmi_system_id x86_android_tablet_ids[] __initconst = {
 	{
 		/* Asus MeMO Pad 7 ME176C */
@@ -658,6 +665,24 @@ static const struct dmi_system_id x86_android_tablet_ids[] __initconst = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "Mipad2"),
 		},
 		.driver_data = (void *)&xiaomi_mipad2_info,
+	},
+	{
+		/* CZC P10T */
+		.ident = "CZC ODEON TPC-10 (\"P10T\")",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "CZC"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "ODEON*TPC-10"),
+		},
+		.driver_data = (void *)&czc_p10t,
+	},
+	{
+		/* A variant of CZC P10T */
+		.ident = "ViewSonic ViewPad 10",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ViewSonic"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "VPAD10"),
+		},
+		.driver_data = (void *)&czc_p10t,
 	},
 	{ }
 };
@@ -766,6 +791,34 @@ put_ctrl_adev:
 	return ret;
 }
 
+#define CZC_EC_EXTRA_PORT   	0x68
+#define CZC_EC_ANDROID_KEYS	0x63
+
+static void __init x86_czc_p10t_fixup(void)
+{
+	/*
+	 * The device boots up in "Windows 7" mode, when the home button sends a
+	 * Windows specific key sequence (Left Meta + D) and the second button
+	 * sends an unknown one while also toggling the Radio Kill Switch.
+	 * This is a surprising behavior when the second button is labeled "Back".
+	 *
+	 * The vendor-supplied Android-x86 build switches the device to a "Android"
+	 * mode by writing value 0x63 to the I/O port 0x68. This just seems to just
+	 * set bit 6 on address 0x96 in the EC region; switching the bit directly
+	 * seems to achieve the same result. It uses a "p10t_switcher" to do the
+	 * job. It doesn't seem to be able to do anything else, and no other use
+	 * of the port 0x68 is known.
+	 *
+	 * In the Android mode, the home button sends just a single scancode,
+	 * which can be handled in Linux userspace more reasonably and the back
+	 * button only sends a scancode without toggling the kill switch.
+	 * The scancode can then be mapped either to Back or RF Kill functionality
+	 * in userspace, depending on how the button is labeled on that particular
+	 * model.
+	 */
+	outb(CZC_EC_ANDROID_KEYS, CZC_EC_EXTRA_PORT);
+}
+
 static void x86_android_tablet_cleanup(void)
 {
 	int i;
@@ -856,6 +909,9 @@ static __init int x86_android_tablet_init(void)
 			return ret;
 		}
 	}
+
+	if (dev_info->fixup)
+		dev_info->fixup();
 
 	return 0;
 }
